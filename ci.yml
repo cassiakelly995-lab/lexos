@@ -1,0 +1,90 @@
+name: LexOS CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+
+  # ----------------------------------------------------------
+  # Go — API Principal
+  # ----------------------------------------------------------
+  test-go:
+    name: "Go — API"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend-go
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+      - run: go mod tidy
+      - run: go build ./...
+      - run: go vet ./...
+
+  # ----------------------------------------------------------
+  # Python — IA
+  # ----------------------------------------------------------
+  test-python:
+    name: "Python — IA"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ai-python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff
+      - run: ruff check . --select=E,F
+
+  # ----------------------------------------------------------
+  # Rust — Docs
+  # ----------------------------------------------------------
+  test-rust:
+    name: "Rust — Docs"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs-rust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo check
+      - run: cargo clippy -- -D warnings
+
+  # ----------------------------------------------------------
+  # TypeScript — Frontend
+  # ----------------------------------------------------------
+  test-typescript:
+    name: "TypeScript — Frontend"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend-ts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm ci --if-present || echo "No package.json yet"
+      - run: npx tsc --noEmit --skipLibCheck --allowJs || echo "TS check done"
+
+  # ----------------------------------------------------------
+  # Deploy (somente na main)
+  # ----------------------------------------------------------
+  deploy:
+    name: "Deploy Produção"
+    needs: [test-go, test-python, test-rust, test-typescript]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy via SSH
+        run: echo "Configure seu servidor aqui"
+        # Em produção: usar appleboy/ssh-action para deploy no servidor

@@ -1,0 +1,273 @@
+# ============================================================
+# LexOS — Infraestrutura Completa
+# Linguagem: YAML (Docker Compose)
+# Sobe todos os 8 serviços com um comando: docker compose up
+# ============================================================
+
+version: "3.9"
+
+# ============================================================
+# REDES
+# ============================================================
+networks:
+  lexos-internal:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# ============================================================
+# VOLUMES PERSISTENTES
+# ============================================================
+volumes:
+  postgres_data:
+  redis_data:
+  docs_storage:
+  prometheus_data:
+
+# ============================================================
+# SERVIÇOS
+# ============================================================
+services:
+
+  # ----------------------------------------------------------
+  # 1. BANCO DE DADOS — PostgreSQL 16
+  #    Linguagem: SQL
+  # ----------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: lexos-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: lexos_db
+      POSTGRES_USER: lexos
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lexos_secret_2024}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=pt_BR.UTF-8"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/001_schema.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lexos -d lexos_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      lexos-internal:
+        ipv4_address: 172.20.0.10
+
+  # ----------------------------------------------------------
+  # 2. CACHE / FILAS — Redis 7
+  #    Linguagem: Lua (scripts Redis)
+  # ----------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: lexos-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD:-redis_secret_2024}
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --save 60 1000
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis_secret_2024}", "ping"]
+      interval: 10s
+      retries: 5
+    networks:
+      lexos-internal:
+        ipv4_address: 172.20.0.11
+
+  # ----------------------------------------------------------
+  # 3. API PRINCIPAL — Go
+  #    Linguagem: Go 1.22
+  # ----------------------------------------------------------
+  api:
+    build:
+      context: ./backend-go
+      dockerfile: Dockerfile
+    container_name: lexos-api
+    restart: unless-stopped
+    environment:
+      PORT: 8080
+      DATABASE_URL: postgres://lexos:${POSTGRES_PASSWORD:-lexos_secret_2024}@postgres:5432/lexos_db
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secret_2024}@redis:6379
+      JWT_SECRET: ${JWT_SECRET:-change_this_in_production_please}
+      AI_SERVICE_URL: http://ai-service:8001
+      CNJ_API_URL: http://cnj-service:8003
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 15s
+      retries: 5
+    networks:
+      lexos-internal:
+        ipv4_address: 172.20.0.20
+
+  # ----------------------------------------------------------
+  # 4. SERVIÇO DE IA — Python
+  #    Linguagem: Python 3.12
+  # ----------------------------------------------------------
+  ai-service:
+    build:
+      context: ./ai-python
+      dockerfile: Dockerfile
+    container_name: lexos-ai
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://lexos:${POSTGRES_PASSWORD:-lexos_secret_2024}@postgres:5432/lexos_db
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secret_2024}@redis:6379
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      MODEL_NAME: gpt-4-turbo
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    networks:
+      lexos-internal:
+        ipv4_address: 172.20.0.21
+
+  # ----------------------------------------------------------
+  # 5. INTEGRAÇÃO CNJ — Java
+  #    Linguagem: Java 21
+  # ----------------------------------------------------------
+  cnj-service:
+    build:
+      context: ./java-cnj
+      dockerfile: Dockerfile
+    container_name: lexos-cnj
+    restart: unless-stopped
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/lexos_db
+      SPRING_DATASOURCE_USERNAME: lexos
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-lexos_secret_2024}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secret_2024}@redis:6379
+      CNJ_API_URL: https://api.cnj.jus.br/pje-cloud/api/v1
+      CNJ_API_KEY: ${CNJ_API_KEY}
+    ports:
+      - "8003:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      lexos-internal:
+        ipv4_address: 172.20.0.22
+
+  # ----------------------------------------------------------
+  # 6. PARSER DE DOCUMENTOS — Rust
+  #    Linguagem: Rust 1.78
+  # ----------------------------------------------------------
+  docs-service:
+    build:
+      context: ./docs-rust
+      dockerfile: Dockerfile
+    container_name: lexos-docs
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://lexos:${POSTGRES_PASSWORD:-lexos_secret_2024}@postgres:5432/lexos_db
+      STORAGE_PATH: /data/documentos
+      PORT: 8002
+    volumes:
+      - docs_storage:/data/documentos
+    ports:
+      - "8002:8002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      lexos-internal:
+        ipv4_address: 172.20.0.23
+
+  # ----------------------------------------------------------
+  # 7. FRONTEND — TypeScript + React (Next.js)
+  #    Linguagem: TypeScript
+  # ----------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend-ts
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${API_URL:-http://localhost:8080}
+    container_name: lexos-frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: ${API_URL:-http://localhost:8080}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-nextauth_secret}
+      NEXTAUTH_URL: ${APP_URL:-http://localhost:3000}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    networks:
+      lexos-internal:
+        ipv4_address: 172.20.0.30
+
+  # ----------------------------------------------------------
+  # 8. REVERSE PROXY — Nginx
+  #    Linguagem: Bash (scripts) + YAML config
+  # ----------------------------------------------------------
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: lexos-nginx
+    restart: unless-stopped
+    volumes:
+      - ./infrastructure/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infrastructure/ssl:/etc/ssl/lexos:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - api
+      - frontend
+    networks:
+      lexos-internal:
+        ipv4_address: 172.20.0.40
+
+  # ----------------------------------------------------------
+  # MONITORAMENTO — Prometheus + Grafana
+  # ----------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.50.1
+    container_name: lexos-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./infrastructure/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      lexos-internal:
+        ipv4_address: 172.20.0.50
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: lexos-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+    networks:
+      lexos-internal:
+        ipv4_address: 172.20.0.51
