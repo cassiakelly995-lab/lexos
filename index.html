@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LexOS — Sistema Jurídico Profissional</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;900&family=DM+Mono:wght@300;400;500&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0b0f;
+    --bg2: #0f1117;
+    --bg3: #141620;
+    --surface: #1a1d2e;
+    --surface2: #1f2338;
+    --border: rgba(120,130,200,0.12);
+    --border2: rgba(120,130,200,0.22);
+    --gold: #c9a84c;
+    --gold2: #e8c97a;
+    --gold-dim: rgba(201,168,76,0.15);
+    --blue: #4a7cdc;
+    --blue-dim: rgba(74,124,220,0.15);
+    --red: #dc4a4a;
+    --red-dim: rgba(220,74,74,0.12);
+    --green: #4adc8c;
+    --green-dim: rgba(74,220,140,0.12);
+    --text: #e8eaf2;
+    --text2: #9098b8;
+    --text3: #5a6080;
+    --radius: 10px;
+    --radius2: 16px;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+  
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* NOISE TEXTURE */
+  body::before {
+    content:'';
+    position:fixed;
+    inset:0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events:none;
+    z-index:0;
+    opacity:0.6;
+  }
+
+  .layout { display:flex; min-height:100vh; position:relative; z-index:1; }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 240px;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top:0; left:0; bottom:0;
+    z-index: 100;
+  }
+
+  .logo {
+    padding: 28px 24px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    font-weight: 900;
+    color: var(--gold);
+    letter-spacing: 0.04em;
+  }
+  .logo-tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    color: var(--text3);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-top: 3px;
+  }
+
+  .nav { padding: 16px 0; flex:1; }
+  .nav-section {
+    font-size: 8px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text3);
+    padding: 12px 24px 6px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 24px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-left: 2px solid transparent;
+    font-size: 12px;
+    color: var(--text2);
+    letter-spacing: 0.03em;
+  }
+  .nav-item:hover { background: var(--surface); color: var(--text); }
+  .nav-item.active {
+    background: linear-gradient(90deg, var(--gold-dim), transparent);
+    color: var(--gold2);
+    border-left-color: var(--gold);
+  }
+  .nav-item .icon { font-size: 14px; width:18px; text-align:center; }
+
+  .nav-badge {
+    margin-left: auto;
+    background: var(--red);
+    color: white;
+    font-size: 9px;
+    padding: 1px 6px;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+  .nav-badge.green { background: var(--green); color: #0a2010; }
+  .nav-badge.blue { background: var(--blue); }
+
+  .sidebar-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+  }
+  .user-block {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .avatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--gold), var(--blue));
+    display: flex; align-items:center; justify-content:center;
+    font-size: 12px; font-weight: 700; color: var(--bg);
+  }
+  .user-info .name { font-size: 11px; color: var(--text); font-weight:500; }
+  .user-info .role { font-size: 9px; color: var(--text3); letter-spacing:0.08em; }
+
+  /* MAIN */
+  .main {
+    margin-left: 240px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* TOPBAR */
+  .topbar {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky; top:0; z-index:50;
+  }
+
+  .topbar-left h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .topbar-left p {
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 0.08em;
+    margin-top: 1px;
+  }
+
+  .topbar-right { display:flex; gap:12px; align-items:center; }
+
+  .btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: var(--radius);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    letter-spacing: 0.04em;
+  }
+  .btn-outline {
+    background: transparent;
+    border: 1px solid var(--border2);
+    color: var(--text2);
+  }
+  .btn-outline:hover { border-color: var(--gold); color: var(--gold); }
+  .btn-primary {
+    background: var(--gold);
+    color: var(--bg);
+    font-weight: 600;
+  }
+  .btn-primary:hover { background: var(--gold2); }
+
+  .notif-dot {
+    position:relative;
+  }
+  .notif-dot::after {
+    content:'';
+    position:absolute;
+    top:6px; right:12px;
+    width:6px; height:6px;
+    background: var(--red);
+    border-radius:50%;
+    border: 1.5px solid var(--bg2);
+  }
+
+  /* CONTENT */
+  .content { padding: 28px 32px; }
+
+  /* STAT CARDS */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius2);
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    animation: fadeUp 0.5s ease both;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .stat-card:hover { border-color: var(--border2); transform: translateY(-2px); }
+  .stat-card:nth-child(1) { animation-delay: 0.05s; }
+  .stat-card:nth-child(2) { animation-delay: 0.1s; }
+  .stat-card:nth-child(3) { animation-delay: 0.15s; }
+  .stat-card:nth-child(4) { animation-delay: 0.2s; }
+
+  .stat-card::before {
+    content:'';
+    position:absolute;
+    top:0; left:0; right:0;
+    height: 2px;
+  }
+  .stat-card.gold::before { background: linear-gradient(90deg, var(--gold), transparent); }
+  .stat-card.blue::before { background: linear-gradient(90deg, var(--blue), transparent); }
+  .stat-card.red::before { background: linear-gradient(90deg, var(--red), transparent); }
+  .stat-card.green::before { background: linear-gradient(90deg, var(--green), transparent); }
+
+  .stat-icon {
+    font-size: 22px;
+    margin-bottom: 12px;
+    opacity: 0.9;
+  }
+  .stat-label {
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 6px;
+  }
+  .stat-value {
+    font-family: 'Playfair Display', serif;
+    font-size: 30px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+  }
+  .stat-sub {
+    font-size: 10px;
+    color: var(--text3);
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .stat-sub .up { color: var(--green); }
+  .stat-sub .down { color: var(--red); }
+
+  /* MAIN GRID */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius2);
+    overflow: hidden;
+    animation: fadeUp 0.5s ease both;
+  }
+  .card:nth-child(1) { animation-delay: 0.25s; }
+  .card:nth-child(2) { animation-delay: 0.3s; }
+
+  .card-header {
+    padding: 18px 22px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .card-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .card-sub {
+    font-size: 10px;
+    color: var(--text3);
+    margin-top: 2px;
+    letter-spacing: 0.05em;
+  }
+  .card-action {
+    font-size: 10px;
+    color: var(--gold);
+    cursor: pointer;
+    letter-spacing: 0.05em;
+  }
+  .card-action:hover { color: var(--gold2); }
+
+  /* PROCESS TABLE */
+  .process-table { width:100%; }
+  .table-head {
+    display: grid;
+    grid-template-columns: 2fr 1.2fr 1fr 1fr 100px;
+    padding: 10px 22px;
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text3);
+    border-bottom: 1px solid var(--border);
+  }
+  .table-row {
+    display: grid;
+    grid-template-columns: 2fr 1.2fr 1fr 1fr 100px;
+    padding: 14px 22px;
+    border-bottom: 1px solid var(--border);
+    align-items: center;
+    transition: background 0.2s;
+    cursor: pointer;
+  }
+  .table-row:hover { background: var(--surface2); }
+  .table-row:last-child { border-bottom: none; }
+
+  .proc-name { font-size: 12px; color: var(--text); font-weight:500; }
+  .proc-num { font-size: 9px; color: var(--text3); margin-top:2px; letter-spacing:0.04em; }
+  .proc-client { font-size: 11px; color: var(--text2); }
+  .proc-area { font-size: 10px; color: var(--text2); }
+  .proc-date { font-size: 10px; color: var(--text2); }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    font-weight: 500;
+  }
+  .badge.urgente { background: var(--red-dim); color: var(--red); border: 1px solid rgba(220,74,74,0.3); }
+  .badge.ativo { background: var(--green-dim); color: var(--green); border: 1px solid rgba(74,220,140,0.3); }
+  .badge.aguardando { background: var(--gold-dim); color: var(--gold); border: 1px solid rgba(201,168,76,0.3); }
+  .badge.arquivado { background: rgba(90,96,128,0.2); color: var(--text3); border: 1px solid var(--border); }
+
+  /* AI PANEL */
+  .ai-panel .card-header { background: linear-gradient(135deg, rgba(74,124,220,0.1), transparent); }
+
+  .ai-insight {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    transition: background 0.2s;
+    cursor: pointer;
+  }
+  .ai-insight:hover { background: var(--surface2); }
+  .ai-insight:last-child { border-bottom: none; }
+
+  .ai-icon {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    display: flex; align-items:center; justify-content:center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .ai-icon.risk { background: var(--red-dim); }
+  .ai-icon.doc { background: var(--blue-dim); }
+  .ai-icon.deadline { background: var(--gold-dim); }
+  .ai-icon.suggest { background: var(--green-dim); }
+
+  .ai-content .ai-title { font-size: 11px; color: var(--text); font-weight:500; margin-bottom:3px; }
+  .ai-content .ai-desc { font-size: 10px; color: var(--text3); line-height:1.5; }
+  .ai-content .ai-time { font-size: 9px; color: var(--text3); margin-top:5px; letter-spacing:0.06em; }
+
+  /* BOTTOM GRID */
+  .bottom-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+  }
+
+  /* FINANCIALS */
+  .fin-list { padding: 8px 0; }
+  .fin-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 22px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.2s;
+    cursor:pointer;
+  }
+  .fin-item:last-child { border-bottom: none; }
+  .fin-item:hover { background: var(--surface2); }
+  .fin-client { font-size: 11px; color: var(--text); }
+  .fin-service { font-size: 9px; color: var(--text3); margin-top:2px; }
+  .fin-value { font-family:'Playfair Display',serif; font-size:14px; color: var(--green); }
+  .fin-value.pending { color: var(--gold); }
+  .fin-value.overdue { color: var(--red); }
+
+  /* CHART BAR */
+  .chart-area { padding: 20px 22px; }
+  .bar-chart { display:flex; align-items:flex-end; gap:8px; height:120px; }
+  .bar-wrap { flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .bar {
+    width:100%;
+    border-radius: 4px 4px 0 0;
+    transition: opacity 0.2s;
+    cursor:pointer;
+    position: relative;
+  }
+  .bar:hover { opacity:0.8; }
+  .bar.primary { background: linear-gradient(180deg, var(--gold), rgba(201,168,76,0.4)); }
+  .bar.secondary { background: linear-gradient(180deg, var(--blue), rgba(74,124,220,0.4)); }
+  .bar-label { font-size: 9px; color: var(--text3); letter-spacing:0.05em; }
+  .chart-legend { display:flex; gap:16px; margin-top:14px; }
+  .legend-item { display:flex; align-items:center; gap:6px; font-size:9px; color:var(--text3); }
+  .legend-dot { width:8px; height:8px; border-radius:2px; }
+
+  /* PRAZOS */
+  .prazo-list { padding: 8px 0; }
+  .prazo-item {
+    padding: 12px 22px;
+    border-bottom: 1px solid var(--border);
+    display:flex;
+    gap:12px;
+    align-items:center;
+    cursor:pointer;
+    transition: background 0.2s;
+  }
+  .prazo-item:hover { background: var(--surface2); }
+  .prazo-item:last-child { border-bottom: none; }
+
+  .prazo-date-block {
+    width: 40px; text-align:center;
+    flex-shrink:0;
+  }
+  .prazo-day { font-family:'Playfair Display',serif; font-size:22px; font-weight:700; line-height:1; }
+  .prazo-month { font-size:8px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text3); }
+  .prazo-day.red { color: var(--red); }
+  .prazo-day.gold { color: var(--gold); }
+  .prazo-day.blue { color: var(--blue); }
+
+  .prazo-info .prazo-title { font-size:11px; color:var(--text); font-weight:500; }
+  .prazo-info .prazo-sub { font-size:9px; color:var(--text3); margin-top:2px; }
+
+  /* MINI DONUT */
+  .donut-wrap { padding: 20px; display:flex; flex-direction:column; align-items:center; gap:16px; }
+  .donut-container { position:relative; width:100px; height:100px; }
+  .donut-label-center {
+    position:absolute; inset:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+  }
+  .donut-num { font-family:'Playfair Display',serif; font-size:22px; font-weight:700; color:var(--text); }
+  .donut-sub { font-size:8px; color:var(--text3); letter-spacing:0.1em; }
+  .donut-legend { display:flex; flex-direction:column; gap:8px; width:100%; padding:0 16px; }
+  .donut-legend-row { display:flex; justify-content:space-between; align-items:center; }
+  .donut-legend-left { display:flex; align-items:center; gap:8px; font-size:10px; color:var(--text2); }
+  .donut-legend-dot { width:8px; height:8px; border-radius:50%; }
+  .donut-legend-val { font-size:11px; color:var(--text); font-weight:500; }
+
+  /* STATUS BAR */
+  .status-bar {
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+    padding: 8px 32px;
+    display: flex;
+    gap: 24px;
+    align-items:center;
+    font-size: 10px;
+    color: var(--text3);
+    margin-left: 240px;
+  }
+  .status-item { display:flex; align-items:center; gap:6px; }
+  .status-dot { width:6px; height:6px; border-radius:50%; }
+  .status-dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .status-dot.yellow { background: var(--gold); }
+  .status-dot.red { background: var(--red); }
+
+  /* TECH STACK TAG */
+  .tech-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 9px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text3);
+    letter-spacing: 0.06em;
+  }
+
+  @keyframes fadeUp {
+    from { opacity:0; transform:translateY(12px); }
+    to { opacity:1; transform:translateY(0); }
+  }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width:4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius:2px; }
+
+  /* PULSE */
+  @keyframes pulse {
+    0%,100% { opacity:1; }
+    50% { opacity:0.4; }
+  }
+  .pulse { animation: pulse 2s infinite; }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-name">LexOS</div>
+      <div class="logo-tag">Sistema Jurídico Pro — v2.4.1</div>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-section">Principal</div>
+      <div class="nav-item active">
+        <span class="icon">⬛</span> Dashboard
+      </div>
+      <div class="nav-item">
+        <span class="icon">⚖️</span> Processos
+        <span class="nav-badge">12</span>
+      </div>
+      <div class="nav-item">
+        <span class="icon">👥</span> Clientes
+      </div>
+      <div class="nav-item">
+        <span class="icon">📅</span> Prazos
+        <span class="nav-badge">3</span>
+      </div>
+
+      <div class="nav-section">Financeiro</div>
+      <div class="nav-item">
+        <span class="icon">💰</span> Honorários
+        <span class="nav-badge green">+5</span>
+      </div>
+      <div class="nav-item">
+        <span class="icon">📊</span> Relatórios
+      </div>
+      <div class="nav-item">
+        <span class="icon">🧾</span> Faturas
+        <span class="nav-badge">2</span>
+      </div>
+
+      <div class="nav-section">Inteligência</div>
+      <div class="nav-item">
+        <span class="icon">🤖</span> LexIA
+        <span class="nav-badge blue">Beta</span>
+      </div>
+      <div class="nav-item">
+        <span class="icon">📄</span> Documentos
+      </div>
+      <div class="nav-item">
+        <span class="icon">🔗</span> CNJ / Tribunais
+      </div>
+
+      <div class="nav-section">Sistema</div>
+      <div class="nav-item">
+        <span class="icon">⚙️</span> Configurações
+      </div>
+      <div class="nav-item">
+        <span class="icon">🛡️</span> Segurança
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-block">
+        <div class="avatar">DR</div>
+        <div class="user-info">
+          <div class="name">Dr. Rafael Costa</div>
+          <div class="role">ADV · OAB/SP 123.456</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <div class="main">
+
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <h1>Central de Comando</h1>
+        <p>QUINTA-FEIRA, 12 DE MARÇO DE 2026 · 14:37 BRT</p>
+      </div>
+      <div class="topbar-right">
+        <span class="tech-tag">🐍 Python</span>
+        <span class="tech-tag">⚛️ React</span>
+        <span class="tech-tag">🦀 Rust</span>
+        <span class="tech-tag">☕ Java</span>
+        <button class="btn btn-outline notif-dot">🔔 Alertas</button>
+        <button class="btn btn-primary">+ Novo Processo</button>
+      </div>
+    </header>
+
+    <!-- CONTENT -->
+    <div class="content">
+
+      <!-- STATS -->
+      <div class="stats-grid">
+        <div class="stat-card gold">
+          <div class="stat-icon">⚖️</div>
+          <div class="stat-label">Processos Ativos</div>
+          <div class="stat-value">248</div>
+          <div class="stat-sub"><span class="up">↑ 14</span> este mês</div>
+        </div>
+        <div class="stat-card blue">
+          <div class="stat-icon">💼</div>
+          <div class="stat-label">Clientes</div>
+          <div class="stat-value">91</div>
+          <div class="stat-sub"><span class="up">↑ 3</span> novos</div>
+        </div>
+        <div class="stat-card red">
+          <div class="stat-icon">⏰</div>
+          <div class="stat-label">Prazos Críticos</div>
+          <div class="stat-value">7</div>
+          <div class="stat-sub"><span class="down">3 esta semana</span></div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-icon">💵</div>
+          <div class="stat-label">Receita / Mês</div>
+          <div class="stat-value">R$84k</div>
+          <div class="stat-sub"><span class="up">↑ 22%</span> vs anterior</div>
+        </div>
+      </div>
+
+      <!-- MAIN GRID -->
+      <div class="main-grid">
+
+        <!-- PROCESSES TABLE -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Processos Recentes</div>
+              <div class="card-sub">Integrado via API CNJ · Atualizado há 4 min</div>
+            </div>
+            <span class="card-action">Ver todos →</span>
+          </div>
+          <div class="process-table">
+            <div class="table-head">
+              <span>Processo</span>
+              <span>Cliente</span>
+              <span>Área</span>
+              <span>Prazo</span>
+              <span>Status</span>
+            </div>
+
+            <div class="table-row">
+              <div>
+                <div class="proc-name">Ação Trabalhista</div>
+                <div class="proc-num">Nº 0012345-78.2024.5.02.0001</div>
+              </div>
+              <div class="proc-client">Empresa ABC Ltda</div>
+              <div class="proc-area">Trabalhista</div>
+              <div class="proc-date">15/03/2026</div>
+              <span class="badge urgente">Urgente</span>
+            </div>
+
+            <div class="table-row">
+              <div>
+                <div class="proc-name">Indenização por Danos</div>
+                <div class="proc-num">Nº 0098765-43.2024.8.26.0100</div>
+              </div>
+              <div class="proc-client">João Silva</div>
+              <div class="proc-area">Cível</div>
+              <div class="proc-date">22/03/2026</div>
+              <span class="badge ativo">Ativo</span>
+            </div>
+
+            <div class="table-row">
+              <div>
+                <div class="proc-name">Recuperação Judicial</div>
+                <div class="proc-num">Nº 1023456-89.2023.8.26.0050</div>
+              </div>
+              <div class="proc-client">Grupo XYZ S.A.</div>
+              <div class="proc-area">Empresarial</div>
+              <div class="proc-date">30/03/2026</div>
+              <span class="badge aguardando">Aguardando</span>
+            </div>
+
+            <div class="table-row">
+              <div>
+                <div class="proc-name">Habeas Corpus</div>
+                <div class="proc-num">Nº 0011223-44.2025.8.26.0000</div>
+              </div>
+              <div class="proc-client">Maria Pereira</div>
+              <div class="proc-area">Criminal</div>
+              <div class="proc-date">18/03/2026</div>
+              <span class="badge urgente">Urgente</span>
+            </div>
+
+            <div class="table-row">
+              <div>
+                <div class="proc-name">Divórcio Litigioso</div>
+                <div class="proc-num">Nº 0055667-22.2024.8.26.0348</div>
+              </div>
+              <div class="proc-client">Carlos Mendes</div>
+              <div class="proc-area">Família</div>
+              <div class="proc-date">05/04/2026</div>
+              <span class="badge ativo">Ativo</span>
+            </div>
+
+            <div class="table-row">
+              <div>
+                <div class="proc-name">Dissolução Societária</div>
+                <div class="proc-num">Nº 0088990-11.2023.8.26.0100</div>
+              </div>
+              <div class="proc-client">Tech Ventures</div>
+              <div class="proc-area">Societário</div>
+              <div class="proc-date">—</div>
+              <span class="badge arquivado">Arquivado</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI PANEL -->
+        <div class="card ai-panel">
+          <div class="card-header">
+            <div>
+              <div class="card-title">🤖 LexIA — Insights</div>
+              <div class="card-sub">Análise por IA · Modelo GPT-4 Jurídico BR</div>
+            </div>
+            <span class="pulse" style="color:var(--green);font-size:9px;">● AO VIVO</span>
+          </div>
+
+          <div class="ai-insight">
+            <div class="ai-icon risk">⚠️</div>
+            <div class="ai-content">
+              <div class="ai-title">Risco elevado — Processo 0012345</div>
+              <div class="ai-desc">Jurisprudência recente do TST indica desfavorável para empregador em casos similares. Recomenda-se revisão da estratégia.</div>
+              <div class="ai-time">há 12 minutos · Confiança 87%</div>
+            </div>
+          </div>
+
+          <div class="ai-insight">
+            <div class="ai-icon doc">📄</div>
+            <div class="ai-content">
+              <div class="ai-title">Petição gerada automaticamente</div>
+              <div class="ai-desc">Contestação para processo 0098765 redigida. Revisão humana necessária antes do protocolo.</div>
+              <div class="ai-time">há 1 hora · 14 páginas</div>
+            </div>
+          </div>
+
+          <div class="ai-insight">
+            <div class="ai-icon deadline">⏱️</div>
+            <div class="ai-content">
+              <div class="ai-title">Prazo crítico em 3 dias</div>
+              <div class="ai-desc">Recurso ordinário — Ação Trabalhista ABC. Prazo fatal: 15/03. Contrarrazões ainda pendentes.</div>
+              <div class="ai-time">há 2 horas · Prazo legal</div>
+            </div>
+          </div>
+
+          <div class="ai-insight">
+            <div class="ai-icon suggest">💡</div>
+            <div class="ai-content">
+              <div class="ai-title">Oportunidade de acordo</div>
+              <div class="ai-desc">Análise preditiva sugere 73% de chance de acordo no processo de divórcio. Mediação recomendada.</div>
+              <div class="ai-time">há 3 horas · Análise preditiva</div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /main-grid -->
+
+      <!-- BOTTOM GRID -->
+      <div class="bottom-grid">
+
+        <!-- HONORARIOS -->
+        <div class="card" style="animation-delay:0.35s">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Honorários</div>
+              <div class="card-sub">Últimas movimentações</div>
+            </div>
+            <span class="card-action">Ver tudo →</span>
+          </div>
+          <div class="fin-list">
+            <div class="fin-item">
+              <div>
+                <div class="fin-client">Grupo XYZ S.A.</div>
+                <div class="fin-service">Recuperação Judicial</div>
+              </div>
+              <div class="fin-value">R$ 24.000</div>
+            </div>
+            <div class="fin-item">
+              <div>
+                <div class="fin-client">Tech Ventures</div>
+                <div class="fin-service">Consultoria Societária</div>
+              </div>
+              <div class="fin-value pending">R$ 8.500</div>
+            </div>
+            <div class="fin-item">
+              <div>
+                <div class="fin-client">Empresa ABC Ltda</div>
+                <div class="fin-service">Ação Trabalhista</div>
+              </div>
+              <div class="fin-value overdue">R$ 5.200</div>
+            </div>
+            <div class="fin-item">
+              <div>
+                <div class="fin-client">João Silva</div>
+                <div class="fin-service">Indenização Cível</div>
+              </div>
+              <div class="fin-value">R$ 3.800</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- BAR CHART -->
+        <div class="card" style="animation-delay:0.4s">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Produtividade</div>
+              <div class="card-sub">Processos × Receita / mês</div>
+            </div>
+          </div>
+          <div class="chart-area">
+            <div class="bar-chart">
+              <div class="bar-wrap">
+                <div class="bar primary" style="height:60px" title="Out: 48"></div>
+                <div class="bar-label">Out</div>
+              </div>
+              <div class="bar-wrap">
+                <div class="bar secondary" style="height:75px" title="Nov: 60k"></div>
+                <div class="bar-label">Nov</div>
+              </div>
+              <div class="bar-wrap">
+                <div class="bar primary" style="height:50px" title="Dez: 40"></div>
+                <div class="bar-label">Dez</div>
+              </div>
+              <div class="bar-wrap">
+                <div class="bar secondary" style="height:90px" title="Jan: 72k"></div>
+                <div class="bar-label">Jan</div>
+              </div>
+              <div class="bar-wrap">
+                <div class="bar primary" style="height:80px" title="Fev: 64"></div>
+                <div class="bar-label">Fev</div>
+              </div>
+              <div class="bar-wrap">
+                <div class="bar secondary" style="height:110px" title="Mar: 84k"></div>
+                <div class="bar-label">Mar</div>
+              </div>
+            </div>
+            <div class="chart-legend">
+              <div class="legend-item">
+                <div class="legend-dot" style="background:var(--gold)"></div>
+                Processos
+              </div>
+              <div class="legend-item">
+                <div class="legend-dot" style="background:var(--blue)"></div>
+                Receita (R$k)
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PRAZOS / DONUT -->
+        <div class="card" style="animation-delay:0.45s">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Próximos Prazos</div>
+              <div class="card-sub">Alertas críticos</div>
+            </div>
+          </div>
+          <div class="prazo-list">
+            <div class="prazo-item">
+              <div class="prazo-date-block">
+                <div class="prazo-day red">15</div>
+                <div class="prazo-month">Mar</div>
+              </div>
+              <div class="prazo-info">
+                <div class="prazo-title">Recurso Ordinário — TST</div>
+                <div class="prazo-sub">Empresa ABC · Trabalhista</div>
+              </div>
+              <span class="badge urgente">3 dias</span>
+            </div>
+            <div class="prazo-item">
+              <div class="prazo-date-block">
+                <div class="prazo-day gold">18</div>
+                <div class="prazo-month">Mar</div>
+              </div>
+              <div class="prazo-info">
+                <div class="prazo-title">Habeas Corpus — TJSP</div>
+                <div class="prazo-sub">Maria Pereira · Criminal</div>
+              </div>
+              <span class="badge aguardando">6 dias</span>
+            </div>
+            <div class="prazo-item">
+              <div class="prazo-date-block">
+                <div class="prazo-day blue">22</div>
+                <div class="prazo-month">Mar</div>
+              </div>
+              <div class="prazo-info">
+                <div class="prazo-title">Contestação — TJSP</div>
+                <div class="prazo-sub">João Silva · Cível</div>
+              </div>
+              <span class="badge ativo">10 dias</span>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /bottom-grid -->
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /layout -->
+
+<!-- STATUS BAR -->
+<div class="status-bar">
+  <div class="status-item"><div class="status-dot green"></div> API CNJ Conectada</div>
+  <div class="status-item"><div class="status-dot green"></div> TJSP Online</div>
+  <div class="status-item"><div class="status-dot green"></div> LexIA Operacional</div>
+  <div class="status-item"><div class="status-dot yellow"></div> TRT-2 Instabilidade</div>
+  <div class="status-item" style="margin-left:auto; display:flex; gap:12px;">
+    <span class="tech-tag">🐹 Go API</span>
+    <span class="tech-tag">🐘 PostgreSQL</span>
+    <span class="tech-tag">🔴 Redis</span>
+    <span class="tech-tag">🐳 Docker/K8s</span>
+  </div>
+</div>
+
+</body>
+</html>
