@@ -1,7 +1,7 @@
 # ============================================================
 # LexOS — Infraestrutura Completa
 # Linguagem: YAML (Docker Compose)
-# Sobe todos os 8 serviços com um comando: docker compose up
+# Sobe todos os serviços com: docker compose up
 # ============================================================
 
 version: "3.9"
@@ -32,7 +32,6 @@ services:
 
   # ----------------------------------------------------------
   # 1. BANCO DE DADOS — PostgreSQL 16
-  #    Linguagem: SQL
   # ----------------------------------------------------------
   postgres:
     image: postgres:16-alpine
@@ -41,7 +40,7 @@ services:
     environment:
       POSTGRES_DB: lexos_db
       POSTGRES_USER: lexos
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lexos_secret_2024}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=pt_BR.UTF-8"
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -59,7 +58,6 @@ services:
 
   # ----------------------------------------------------------
   # 2. CACHE / FILAS — Redis 7
-  #    Linguagem: Lua (scripts Redis)
   # ----------------------------------------------------------
   redis:
     image: redis:7-alpine
@@ -67,7 +65,7 @@ services:
     restart: unless-stopped
     command: >
       redis-server
-      --requirepass ${REDIS_PASSWORD:-redis_secret_2024}
+      --requirepass ${REDIS_PASSWORD}
       --maxmemory 512mb
       --maxmemory-policy allkeys-lru
       --save 60 1000
@@ -76,7 +74,7 @@ services:
     ports:
       - "6379:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis_secret_2024}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       retries: 5
     networks:
@@ -84,8 +82,7 @@ services:
         ipv4_address: 172.20.0.11
 
   # ----------------------------------------------------------
-  # 3. API PRINCIPAL — Go
-  #    Linguagem: Go 1.22
+  # 3. API PRINCIPAL — Go 1.22
   # ----------------------------------------------------------
   api:
     build:
@@ -95,9 +92,9 @@ services:
     restart: unless-stopped
     environment:
       PORT: 8080
-      DATABASE_URL: postgres://lexos:${POSTGRES_PASSWORD:-lexos_secret_2024}@postgres:5432/lexos_db
-      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secret_2024}@redis:6379
-      JWT_SECRET: ${JWT_SECRET:-change_this_in_production_please}
+      DATABASE_URL: postgres://lexos:${POSTGRES_PASSWORD}@postgres:5432/lexos_db
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      JWT_SECRET: ${JWT_SECRET}
       AI_SERVICE_URL: http://ai-service:8001
       CNJ_API_URL: http://cnj-service:8003
     ports:
@@ -116,8 +113,7 @@ services:
         ipv4_address: 172.20.0.20
 
   # ----------------------------------------------------------
-  # 4. SERVIÇO DE IA — Python
-  #    Linguagem: Python 3.12
+  # 4. SERVIÇO DE IA — Python 3.12
   # ----------------------------------------------------------
   ai-service:
     build:
@@ -126,8 +122,8 @@ services:
     container_name: lexos-ai
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://lexos:${POSTGRES_PASSWORD:-lexos_secret_2024}@postgres:5432/lexos_db
-      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secret_2024}@redis:6379
+      DATABASE_URL: postgresql://lexos:${POSTGRES_PASSWORD}@postgres:5432/lexos_db
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       MODEL_NAME: gpt-4-turbo
     ports:
@@ -146,8 +142,7 @@ services:
         ipv4_address: 172.20.0.21
 
   # ----------------------------------------------------------
-  # 5. INTEGRAÇÃO CNJ — Java
-  #    Linguagem: Java 21
+  # 5. INTEGRAÇÃO CNJ — Java 21
   # ----------------------------------------------------------
   cnj-service:
     build:
@@ -158,8 +153,8 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/lexos_db
       SPRING_DATASOURCE_USERNAME: lexos
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-lexos_secret_2024}
-      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secret_2024}@redis:6379
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       CNJ_API_URL: https://api.cnj.jus.br/pje-cloud/api/v1
       CNJ_API_KEY: ${CNJ_API_KEY}
     ports:
@@ -172,8 +167,7 @@ services:
         ipv4_address: 172.20.0.22
 
   # ----------------------------------------------------------
-  # 6. PARSER DE DOCUMENTOS — Rust
-  #    Linguagem: Rust 1.78
+  # 6. PARSER DE DOCUMENTOS — Rust 1.78
   # ----------------------------------------------------------
   docs-service:
     build:
@@ -182,7 +176,7 @@ services:
     container_name: lexos-docs
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgres://lexos:${POSTGRES_PASSWORD:-lexos_secret_2024}@postgres:5432/lexos_db
+      DATABASE_URL: postgres://lexos:${POSTGRES_PASSWORD}@postgres:5432/lexos_db
       STORAGE_PATH: /data/documentos
       PORT: 8002
     volumes:
@@ -198,7 +192,6 @@ services:
 
   # ----------------------------------------------------------
   # 7. FRONTEND — TypeScript + React (Next.js)
-  #    Linguagem: TypeScript
   # ----------------------------------------------------------
   frontend:
     build:
@@ -210,7 +203,7 @@ services:
     restart: unless-stopped
     environment:
       NEXT_PUBLIC_API_URL: ${API_URL:-http://localhost:8080}
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-nextauth_secret}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
       NEXTAUTH_URL: ${APP_URL:-http://localhost:3000}
     ports:
       - "3000:3000"
@@ -222,7 +215,6 @@ services:
 
   # ----------------------------------------------------------
   # 8. REVERSE PROXY — Nginx
-  #    Linguagem: Bash (scripts) + YAML config
   # ----------------------------------------------------------
   nginx:
     image: nginx:1.25-alpine
@@ -262,7 +254,7 @@ services:
     container_name: lexos-grafana
     restart: unless-stopped
     environment:
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD}
       GF_USERS_ALLOW_SIGN_UP: "false"
     ports:
       - "3001:3000"

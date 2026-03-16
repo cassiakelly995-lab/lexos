@@ -1,0 +1,45 @@
+# ============================================================
+# LexOS — Variáveis de Ambiente
+# ATENÇÃO: Este arquivo NUNCA deve ser commitado no Git!
+# ============================================================
+
+# ----------------------------------------------------------
+# BANCO DE DADOS — PostgreSQL
+# ----------------------------------------------------------
+POSTGRES_PASSWORD=troque_por_uma_senha_forte_aqui
+
+# ----------------------------------------------------------
+# CACHE / FILAS — Redis
+# ----------------------------------------------------------
+REDIS_PASSWORD=troque_por_outra_senha_forte_aqui
+
+# ----------------------------------------------------------
+# API PRINCIPAL — Go
+# ----------------------------------------------------------
+# Gere com: openssl rand -base64 32
+JWT_SECRET=troque_por_string_aleatoria_longa_256bits
+
+# URL pública da aplicação
+API_URL=http://localhost:8080
+APP_URL=http://localhost:3000
+
+# ----------------------------------------------------------
+# FRONTEND — Next.js
+# ----------------------------------------------------------
+# Gere com: openssl rand -base64 32
+NEXTAUTH_SECRET=troque_por_outra_string_aleatoria
+
+# ----------------------------------------------------------
+# SERVIÇO DE IA — Python
+# ----------------------------------------------------------
+OPENAI_API_KEY=sk-coloque_sua_chave_openai_aqui
+
+# ----------------------------------------------------------
+# INTEGRAÇÃO CNJ — Java
+# ----------------------------------------------------------
+CNJ_API_KEY=coloque_sua_chave_cnj_aqui
+
+# ----------------------------------------------------------
+# MONITORAMENTO — Grafana
+# ----------------------------------------------------------
+GRAFANA_PASSWORD=troque_por_senha_do_grafana
